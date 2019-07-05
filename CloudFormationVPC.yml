@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: 2019-06-19
+Decription: "Network: VPC, Subnets + RouteTables, Internet + NAT Gateways"
+
+Metadata:
+  AWS: CloudFormation::Interface:
+    ParameterGroup:
+      -
+        Label:
+          default: "Network Configuration"
+        Parameters:
+          - Environment
+          - VPCBlock
+          - VPCBlock2
+        -
+        Label:
+          default: "Subnets CIDR Blocks"
+        Parameters:
+          - PublicSubnetACIDR
+          - PublicSubnetBCIDR
+          - PrivateSubnetACIDR
+          - PrivateSubnetBCIDR
+          - DatabaseSubnetACIDR
+          - DatabaseSubnetBCIDR
+
+Parameters:
+  Environment:
+    Type: String
+    Default: "problemSolvingApp-Prod"
+  VPCBlock:
+    Type: String
+    Default: "10.0.0.0/16"
+    
+  VPCBlock2:
+    Type: String
+    Default: '192.0.0.0/16'
+    
+  PublicSubnetACIDR:
+    Type: String
+    Default: '10.0.10.0/24'
+    Decription: "Public subnet-A CIDR"
+  
+  PublicSubnetBCIDR:
+    Type: String
+    Default: '10.0.20.0/24'
+    Decription: "Public subnet-B CIDR"
+    
+  PrivateSubnetACIDR:
+    Type: String
+    Default: '10.0.11.0/24'
+    Decription: "Private subnet-A CIDR"
+    
+  PrivateSubnetBCIDR:
+    Type: String
+    Default: '10.0.21.0/24'
+    Decription: "Private subnet-A CIDR"
+    
+  DatabaseSubnetACIDR:
+    Type: String
+    Default: '10.0.30.0/24'
+    Decription: "Database subnet-A CIDR"
+    
+  DatabaseSubnetBCIDR:
+    Type: String
+    Default: '10.0.31.0/24'
+    Decription: "Database subnet-A CIDR"
+    
+Resources:
+#========= VPC ===========
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:                                 #Attach Primary CidrBlock
+      CidrBlock: !Ref VPCBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref Environment
+          
+  VPCCidrBlock2:                               #Attach Secondary CIDR Blocks
+    Type: "AWS::EC2::InternetGateway"
+    Properties: 
+      CidrBlock: !Ref VPCBlock2
+      Vpcid: !Ref VPC
+      
+#=========== Create internet Gateway ============
+  GatewayInternet:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref Environment
+          
+  GatewayAttachmentInternet:                   #Attacment IGN to VPC
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      Vpcid: !Ref VPC
+      InternetGatewayId: !Ref GatewayInternet
+      
+#========== Public RouteTables ================
+  RouteTableForPublicSubnet:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      Vpcid: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ " ", [ !Ref Environment, "PublicRouteTable" ] ]
+          
+  RoutesForPublicRouteTable:
+    Type: "AWS::EC2::Route"
+    DependsOn: GatewayAttachmentInternet
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref GatewayInternet
+      RouteTableId: !Ref RouteTableForPublicSubnet
+      
+#=========== Private RouteTables ======================
+  RouteForPrivateSubnetA:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      Vpcid: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ " ", [ !Ref Environment, "PrivateRouteTableA" ] ]
+
+  RouteForPrivateSubnetB:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      Vpcid: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ " ", [ !Ref Environment, "PrivateRouteTableB" ] ]
+          
+#============ Routes For Private Subnet RouteTables Using NAT ================
+  RoutesForPrivateRouteTableA:
+    Type: AWS::EC2::Route
+    DependsOn: NATGatewayA
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref RouteForPrivateSubnetA
+      NatGatewayId: !Ref NATGatewayA
+      
+  RoutesForPrivateSubnetTableB:
+    Type: AWS::EC2::Route
+    DependsOn: NATGatewayB
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref RouteForPrivateSubnetB
+      NatGatewayId: !Ref NATGatewayB
+
+#============= Associate Private Route For Private Subnets ==============
+  RouteAssociationPublicA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForPublicSubnet
+      SubnetId: !Ref PublicSubnetA
+      
+  RouteAssociationPublicB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForPublicSubnet
+      SubnetId: !Ref PublicSubnetB
+      
+#======= Associate Private Route For Private Subnets ====================
+  RouteAssociationPrivateA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForPrivateSubnet
+      SubnetId: !Ref PrivateSubnetA
+      
+  RouteAssociationPrivateB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForPrivateSubnet
+      SubnetId: !Ref PrivateSubnetB
+    
+#============Route Table And Route Association For Internal Only - Databases ====================
+  RouteTableForDatabase:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      Vpcid: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ " ", [ !Ref Environment, "DatabaseRouteTable" ] ]
+  
+  RouteAssociationDatabaseA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForDatabase
+      SubnetId: !Ref DatabaseSubnetA
+      
+  RouteAssociationDatabaseB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForDatabase
+      SubnetId: !Ref DatabaseSubnetB
+    
+#============ Elastic For NAT Gateway =========
+  
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

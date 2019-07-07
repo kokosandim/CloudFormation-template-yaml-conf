@@ -194,9 +194,40 @@ Resources:
       RouteTableId: !Ref RouteTableForDatabase
       SubnetId: !Ref DatabaseSubnetB
     
-#============ Elastic For NAT Gateway =========
-  
-    
+#============ ElasticIP For NAT Gateway =========
+  EIP1:
+    Type: "AWS::EC2::EIP"
+    DependsOn : GatewayAttaachmentInternet
+    Properties:
+      Domain: !Ref VPC
+      
+  EIP2:
+    Type: "AWS::EC2::EIP"
+    DependsOn : GatewayAttaachmentInternet
+    Properties:
+      Domain: !Ref VPC
+      
+#===== NAT Gateways
+  NatGatewayA:
+    DependsOn: GatewayAttaachmentInternet
+    Type: AWS::EC2::NATGateway
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      AllocationId: !GetAtt EIP1 AllocationId
+      Tags:
+        - Key: Name
+          Value: NAT-A
+          
+  NatGatewayB:
+    DependsOn: GatewayAttaachmentInternet
+    Type: AWS::EC2::NATGateway
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      AllocationId: !GetAtt EIP1 AllocationId
+      Tags:
+        - Key: Name
+          Value: NAT-B
+          
     
     
     

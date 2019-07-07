@@ -341,3 +341,16 @@ Outputs:
     Export:
       Name: !Join [ "-", [ !Ref "Environment", "PrivateSubnetB" ] ]
     
+  DatabaseA:
+    Description: ID for Database Subnet A
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Join [ "-", [ !Ref "Environment", "DatabaseSubnetA" ] ]
+      
+  DatabaseB:
+    Description: ID for Database Subnet B
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Join [ "-", [ !Ref "Environment", "DatabaseSubnetB" ] ]
+      
+      

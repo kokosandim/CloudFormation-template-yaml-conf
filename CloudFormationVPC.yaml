@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2019-06-19
+AWSTemplateFormatVersion: '2010-09-09'
 Decription: "Network: VPC, Subnets + RouteTables, Internet + NAT Gateways"
 
 Metadata:

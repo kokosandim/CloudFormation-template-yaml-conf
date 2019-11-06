@@ -33,7 +33,7 @@ Metadata:
 Parameters:
   Environment:
     Type: String
-    Default: "KGB-Prod"
+    Default: "stage-prod"
 
   VPCBlock:
     Type: String
